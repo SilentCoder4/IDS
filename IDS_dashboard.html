@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IDS Dashboard</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        h1 {
+            color: #333;
+        }
+        .button-group {
+            margin-bottom: 20px;
+        }
+        button {
+            padding: 10px 15px;
+            margin-right: 10px;
+            cursor: pointer;
+            border: 1px solid #ccc;
+            background-color: #f4f4f4;
+            border-radius: 5px;
+        }
+        button.active {
+            background-color: #007bff;
+            color: white;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        th, td {
+            padding: 10px;
+            border: 1px solid #ddd;
+            text-align: left;
+        }
+        th {
+            background-color: #f4f4f4;
+        }
+        .alert {
+            color: red;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>Intrusion Detection System Dashboard</h1>
+
+    <div class="button-group">
+        <button id="tcpButton" class="active" onclick="switchProtocol('TCP')">Monitor TCP</button>
+        <button id="udpButton" onclick="switchProtocol('UDP')">Monitor UDP</button>
+    </div>
+
+    <h2>Real-Time Packet Counts</h2>
+    <table>
+        <tr>
+            <th>Protocol</th>
+            <th>Packet Count</th>
+        </tr>
+        <tr>
+            <td>TCP</td>
+            <td id="tcpCount">0</td>
+        </tr>
+        <tr>
+            <td>UDP</td>
+            <td id="udpCount">0</td>
+        </tr>
+    </table>
+
+    <h2>Alerts</h2>
+    <table>
+        <tr>
+            <th>Time</th>
+            <th>Protocol</th>
+            <th>Packet Count</th>
+            <th>Message</th>
+        </tr>
+        <tbody id="alertsTable"></tbody>
+    </table>
+
+    <script>
+        let currentProtocol = "TCP";
+
+        function fetchTrafficData() {
+            fetch('api/traffic/sniffed_packets.json')
+                .then(response => response.json())
+                .then(data => {
+                    // Update packet counts
+                    document.getElementById('tcpCount').textContent = data.packet_counts.TCP;
+                    document.getElementById('udpCount').textContent = data.packet_counts.UDP;
+
+                    // Update alerts
+                    const alertsTable = document.getElementById('alertsTable');
+                    alertsTable.innerHTML = ''; // Clear existing alerts
+                    data.alerts.forEach(alert => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${alert.time}</td>
+                            <td>${alert.protocol}</td>
+                            <td>${alert.count}</td>
+                            <td class="alert">${alert.message}</td>
+                        `;
+                        alertsTable.appendChild(row);
+                    });
+                })
+                .catch(error => console.error('Error fetching traffic data:', error));
+        }
+
+        function switchProtocol(protocol) {
+            // Update protocol filter in the backend
+            fetch('api/set_protocol', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ protocol })
+            })
+            .then(response => response.json())
+            .then(data => console.log(data.message))
+            .catch(error => console.error('Error switching protocol:', error));
+
+            // Update button styles
+            document.getElementById('tcpButton').classList.remove('active');
+            document.getElementById('udpButton').classList.remove('active');
+            if (protocol === 'TCP') {
+                document.getElementById('tcpButton').classList.add('active');
+            } else {
+                document.getElementById('udpButton').classList.add('active');
+            }
+
+            // Update current protocol
+            currentProtocol = protocol;
+        }
+
+        // Fetch traffic data every second
+        setInterval(fetchTrafficData, 1000);
+    </script>
+</body>
+</html>
