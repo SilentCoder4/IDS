@@ -1,28 +1,24 @@
-# ===================headers========================
 import sys
 import json
 import os
 from scapy.all import *
-from scapy.layers.inet import IP
-from scapy.layers.http import HTTPRequest, TCP
+from scapy.layers.inet import IP, TCP, UDP
+from scapy.layers.http import HTTPRequest
 from colorama import init, Fore
 from datetime import datetime
 
-# =================color=declaration================
-
+# Initialize colorama
 init()
-r = Fore.RED  # RED
-g = Fore.GREEN  # GREEN
-bu = Fore.BLUE  # BLUE
-y = Fore.YELLOW  # YELLOW
-c = Fore.CYAN  # CYAN
-rst = Fore.RESET  # RESET color
+r = Fore.RED
+g = Fore.GREEN
+bu = Fore.BLUE
+y = Fore.YELLOW
+rst = Fore.RESET
 
-# ==================================================
+# JSON file path
 JSON_LOG_FILE = "api/traffic/sniffed_packets.json"
 
-
-# Initialize the JSON file with an empty "packets" array
+# Initialize the JSON file with an empty "packets" array and counts for TCP and UDP
 def initialize_json_file():
     try:
         os.makedirs(os.path.dirname(JSON_LOG_FILE), exist_ok=True)
@@ -33,10 +29,9 @@ def initialize_json_file():
             if "packets" not in data:  # Ensure the key "packets" exists
                 raise ValueError("Invalid JSON structure")
     except (FileNotFoundError, json.JSONDecodeError, ValueError):
-        # Create or reset the JSON file with an empty "packets" array
+        # Create or reset the JSON file with an empty "packets" array and total counts
         with open(JSON_LOG_FILE, "w") as json_file:
-            json.dump({"packets": []}, json_file, indent=4)
-
+            json.dump({"packets": [], "alerts": [], "total_counts": {"TCP": 0, "UDP": 0}}, json_file, indent=4)
 
 # Append data to the "packets" array in the JSON file
 def write_to_json(data):
@@ -45,18 +40,40 @@ def write_to_json(data):
             logs = json.load(json_file)
 
         logs["packets"].append(data)  # Append to the "packets" array
+        logs["total_counts"][data["protocol"]] += 1  # Increment the protocol count (TCP or UDP)
 
         with open(JSON_LOG_FILE, "w") as json_file:
             json.dump(logs, json_file, indent=4)
     except Exception as e:
         print(f"{r}[!] Error writing to JSON file: {str(e)}{rst}")
 
+# Function to trigger alerts based on specific conditions (e.g., large packet size)
+def trigger_alert(packet_data):
+    alert_message = None
+    if packet_data["size"] > 1000:  # Example: large packet alert
+        alert_message = f"Large {packet_data['protocol']} packet detected. Possible attack."
+
+    if alert_message:
+        alert_data = {
+            "time": packet_data["timestamp"],
+            "protocol": packet_data["protocol"],
+            "size": packet_data["size"],
+            "message": alert_message
+        }
+        try:
+            with open(JSON_LOG_FILE, "r") as json_file:
+                logs = json.load(json_file)
+            logs["alerts"].append(alert_data)
+            with open(JSON_LOG_FILE, "w") as json_file:
+                json.dump(logs, json_file, indent=4)
+        except Exception as e:
+            print(f"{r}[!] Error writing alert to JSON file: {str(e)}{rst}")
 
 # Sniff packets on the specified interface
 def sniff_packets(iface):
     try:
         print(f"{g}[*] Starting packet sniffing on {iface if iface else 'all interfaces'}...{rst}")
-        sniff(prn=prc_packets, iface=iface, store=False, filter="tcp or udp")
+        sniff(prn=process_packet, iface=iface, store=False, filter="tcp or udp")
     except PermissionError:
         print(f"{r}[!] Permission denied. Run as administrator/root.{rst}")
     except KeyboardInterrupt:
@@ -65,9 +82,8 @@ def sniff_packets(iface):
     except Exception as e:
         print(f"{r}[!] Error: {str(e)}{rst}")
 
-
 # Process each captured packet
-def prc_packets(packet):
+def process_packet(packet):
     try:
         packet_data = {
             "timestamp": datetime.now().isoformat(),
@@ -114,15 +130,16 @@ def prc_packets(packet):
         # Save the packet data to the JSON file
         write_to_json(packet_data)
 
+        # Trigger alerts for any suspicious packets
+        trigger_alert(packet_data)
+
     except Exception as e:
         print(f"{r}[!] Error processing packet: {str(e)}{rst}")
-
 
 # Main function to start the packet sniffer
 def main():
     iface = sys.argv[1] if len(sys.argv) > 1 else None
     sniff_packets(iface)
-
 
 if __name__ == "__main__":
     initialize_json_file()
