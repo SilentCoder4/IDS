@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IDS Control Panel</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+
+        form {
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+
+        .form-group textarea {
+            resize: vertical;
+        }
+
+        button {
+            display: block;
+            width: 100%;
+            background-color: #007BFF;
+            color: #fff;
+            padding: 10px;
+            border: none;
+            border-radius: 4px;
+            font-size: 18px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        .success {
+            color: green;
+            margin-top: 10px;
+        }
+
+        .error {
+            color: red;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>IDS Control Panel</h1>
+
+        <!-- Add Alert Form -->
+        <form id="addAlertForm">
+            <h2>Add Alert</h2>
+            <div class="form-group">
+                <label for="alertProtocol">Protocol</label>
+                <select id="alertProtocol" name="protocol">
+                    <option value="TCP">TCP</option>
+                    <option value="UDP">UDP</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="alertMessage">Alert Message</label>
+                <textarea id="alertMessage" name="message" rows="3" placeholder="Enter alert message..."></textarea>
+            </div>
+            <button type="button" onclick="addAlert()">Add Alert</button>
+            <div id="addAlertStatus" class="success" style="display: none;">Alert added successfully!</div>
+        </form>
+
+        <!-- Set Threshold Form -->
+        <form id="setThresholdForm">
+            <h2>Set Threshold</h2>
+            <div class="form-group">
+                <label for="thresholdTCP">TCP Threshold</label>
+                <input type="number" id="thresholdTCP" name="tcp_threshold" placeholder="Enter TCP threshold...">
+            </div>
+            <div class="form-group">
+                <label for="thresholdUDP">UDP Threshold</label>
+                <input type="number" id="thresholdUDP" name="udp_threshold" placeholder="Enter UDP threshold...">
+            </div>
+            <button type="button" onclick="setThreshold()">Set Threshold</button>
+            <div id="setThresholdStatus" class="success" style="display: none;">Thresholds updated successfully!</div>
+        </form>
+
+    </div>
+
+    <script>
+        // Function to add an alert
+        function addAlert() {
+            const protocol = document.getElementById('alertProtocol').value;
+            const message = document.getElementById('alertMessage').value;
+
+            if (!message) {
+                alert('Alert message cannot be empty!');
+                return;
+            }
+
+            const alertData = { protocol, message };
+
+            fetch('api/add_alert', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(alertData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Add Alert Response:', data);
+                document.getElementById('addAlertStatus').style.display = 'block';
+                setTimeout(() => {
+                    document.getElementById('addAlertStatus').style.display = 'none';
+                }, 3000);
+            })
+            .catch(error => {
+                console.error('Error adding alert:', error);
+            });
+        }
+
+        // Function to set thresholds
+        function setThreshold() {
+            const tcpThreshold = document.getElementById('thresholdTCP').value;
+            const udpThreshold = document.getElementById('thresholdUDP').value;
+
+            if (!tcpThreshold || !udpThreshold) {
+                alert('Threshold values cannot be empty!');
+                return;
+            }
+
+            const thresholdData = { tcp_threshold: tcpThreshold, udp_threshold: udpThreshold };
+
+            fetch('api/set_threshold', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(thresholdData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Set Threshold Response:', data);
+                document.getElementById('setThresholdStatus').style.display = 'block';
+                setTimeout(() => {
+                    document.getElementById('setThresholdStatus').style.display = 'none';
+                }, 3000);
+            })
+            .catch(error => {
+                console.error('Error setting thresholds:', error);
+            });
+        }
+    </script>
+</body>
+</html>
